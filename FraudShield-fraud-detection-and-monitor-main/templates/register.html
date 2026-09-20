@@ -1,0 +1,52 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>FraudShield Register</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.2/css/all.min.css">
+  <link rel="stylesheet" href="{{ url_for('static', filename='fintech.css') }}">
+</head>
+<body>
+  <div class="auth-shell">
+    <section class="auth-card">
+      <div class="auth-card-inner">
+        <div class="auth-brand">
+          <div class="brand-icon"><i class="fa-solid fa-user-plus"></i></div>
+          <div>
+            <h3>Create account</h3>
+            <p>Join FraudShield and secure your transactions</p>
+          </div>
+        </div>
+        <h2>Create account</h2>
+        <p>Set up your profile and start protecting your card.</p>
+        {% with messages = get_flashed_messages() %}
+          {% if messages %}
+            <div class="flash">{{ messages[0] }}</div>
+          {% endif %}
+        {% endwith %}
+        <form method="post" action="/register">
+          <div class="form-grid">
+            <div class="full"><label>Full Name</label><input type="text" name="full_name" placeholder="Full Name" required></div>
+            <div class="full"><label>Email</label><input type="email" name="email" placeholder="Email" required></div>
+            <div><label>Phone</label><input type="text" name="phone" placeholder="Phone Number" required></div>
+            <div><label>Password</label><input type="password" name="password" placeholder="Password" required></div>
+            <div><label>Confirm Password</label><input type="password" name="confirm_password" placeholder="Confirm Password" required></div>
+            <div><label>Bank Name</label><input type="text" name="bank_name" placeholder="Bank Name" required></div>
+            <div class="full"><label>Card Number</label><input type="text" name="card_number" placeholder="Card Number" required></div>
+            <div class="full"><label>Account Number</label><input type="text" name="account_number" placeholder="Account Number" required></div>
+            <div><label>Initial Balance</label><input type="number" step="0.01" name="initial_balance" placeholder="Initial Balance" required></div>
+            <div><label>Daily Limit</label><input type="number" name="daily_limit" placeholder="Daily Transaction Limit" required></div>
+            <div><label>Max Amount</label><input type="number" step="0.01" name="max_transaction_amount" placeholder="Max Amount Per Transaction" required></div>
+            <div class="full"><button class="btn-primary" type="submit">Register</button></div>
+          </div>
+        </form>
+        <p class="auth-links" style="justify-content:center; margin-top:14px;">Already have account? <a href="/login">Login here</a></p>
+      </div>
+    </section>
+  </div>
+</body>
+</html>

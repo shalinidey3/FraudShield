@@ -1,0 +1,78 @@
+﻿<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>FraudShield History</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.2/css/all.min.css">
+  <link rel="stylesheet" href="{{ url_for('static', filename='fintech.css') }}">
+</head>
+<body>
+  <div class="app-shell">
+    <aside class="sidebar">
+      <div class="brand">
+        <div class="brand-icon"><i class="fa-solid fa-shield-halved"></i></div>
+        <div>
+          <h4>FraudShield</h4>
+          <small>Transaction History</small>
+        </div>
+      </div>
+      <nav class="nav-links">
+        <a class="nav-link" href="/dashboard"><i class="fa-solid fa-gauge-high"></i> Dashboard</a>
+        <a class="nav-link" href="/transaction"><i class="fa-solid fa-arrow-right-arrow-left"></i> Transaction Monitoring</a>
+        <a class="nav-link active" href="/history"><i class="fa-solid fa-clock-rotate-left"></i> History</a>
+        <a class="nav-link" href="/alerts"><i class="fa-solid fa-bell"></i> Alerts</a>
+        <a class="nav-link" href="/report"><i class="fa-solid fa-file-lines"></i> Reports</a>
+        <a class="nav-link" href="/logout"><i class="fa-solid fa-right-from-bracket"></i> Logout</a>
+      </nav>
+    </aside>
+
+    <main class="main-content">
+      <section class="page-header">
+        <h1>History</h1>
+        <p>Review your recent transaction outcomes and past fraud assessments in one place.</p>
+      </section>
+
+      <section class="card">
+        <div class="section-head">
+          <h3>Activity History</h3>
+        </div>
+        <div class="table-responsive">
+          <table>
+            <thead>
+              <tr>
+                <th>Date</th>
+                <th>Amount</th>
+                <th>Prediction</th>
+                <th>Risk Score</th>
+                <th>Status</th>
+                <th>Balance After</th>
+              </tr>
+            </thead>
+            <tbody>
+              {% for t in transactions %}
+              <tr>
+                <td>{{ t.display_date or t.timestamp or t.created_at or t.updated_at or 'N/A' }}</td>
+                <td>₹ {{ t.amount }}</td>
+                <td>{{ t.prediction }}</td>
+                <td>
+                  {% if t.risk_score is not none %}
+                    <span class="badge {{ 'danger' if t.risk_score|float >= 80 else 'medium' if t.risk_score|float >= 40 else 'safe' }}">{{ t.risk_score }}%</span>
+                  {% else %}
+                    <span class="badge info">N/A</span>
+                  {% endif %}
+                </td>
+                <td><span class="status-badge {{ 'danger' if (t.status|upper) in ['BLOCKED','REJECTED','FRAUD'] else 'safe' }}">{{ t.status }}</span></td>
+                <td>₹ {{ t.balance_after if t.balance_after is not none else 'N/A' }}</td>
+              </tr>
+              {% endfor %}
+            </tbody>
+          </table>
+        </div>
+      </section>
+    </main>
+  </div>
+</html>

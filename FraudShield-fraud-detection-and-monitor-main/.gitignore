@@ -1,0 +1,31 @@
+# Python
+__pycache__/
+*.py[cod]
+*.pyo
+
+# Virtual environment
+.venv/
+venv/
+
+# Environment variables
+.env
+
+# Pytest
+.pytest_cache/
+
+# VS Code
+.vscode/
+
+# Logs
+*.log
+
+# Database
+*.db
+
+# Temporary files
+tmp_*.py
+tempCodeRunnerFile.py
+
+# Generated reports
+*.pdf
+*.xlsx

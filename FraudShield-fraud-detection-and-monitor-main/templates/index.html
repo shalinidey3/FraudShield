@@ -1,0 +1,243 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>FraudShield Transaction Center</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.2/css/all.min.css">
+  <link rel="stylesheet" href="{{ url_for('static', filename='fintech.css') }}">
+</head>
+<body>
+  <div class="app-shell">
+    <aside class="sidebar">
+      <div class="brand">
+        <div class="brand-icon"><i class="fa-solid fa-shield-halved"></i></div>
+        <div>
+          <h4>FraudShield</h4>
+          <small>Transaction Center</small>
+        </div>
+      </div>
+      <nav class="nav-links">
+        <a class="nav-link" href="/dashboard"><i class="fa-solid fa-gauge-high"></i> Dashboard</a>
+        <a class="nav-link active" href="/transaction"><i class="fa-solid fa-arrow-right-arrow-left"></i> Transaction Monitoring</a>
+        <a class="nav-link" href="/history"><i class="fa-solid fa-clock-rotate-left"></i> History</a>
+        <a class="nav-link" href="/alerts"><i class="fa-solid fa-bell"></i> Alerts</a>
+        <a class="nav-link" href="/report"><i class="fa-solid fa-file-lines"></i> Reports</a>
+        <a class="nav-link" href="/logout"><i class="fa-solid fa-right-from-bracket"></i> Logout</a>
+      </nav>
+    </aside>
+
+    <main class="main-content">
+      {% with messages = get_flashed_messages() %}
+        {% if messages %}
+          <div class="flash">{{ messages[0] }}</div>
+        {% endif %}
+      {% endwith %}
+
+      <section class="page-header">
+        <h1>Transaction Monitoring</h1>
+        <p>Analyze transactions and review live fraud signals before they affect your account.</p>
+      </section>
+
+      <section class="stacked-section">
+        <div class="form-card" id="analyze-form">
+          <div class="section-head">
+            <h3>Analyze Transaction</h3>
+            <span class="badge info"><i class="fa-solid fa-sparkles"></i> AI Review</span>
+          </div>
+          <div class="summary-strip" style="display:grid; grid-template-columns:repeat(3, minmax(0, 1fr)); gap:10px; margin-bottom:14px;">
+            <div class="mini-stat" style="padding:10px 12px; border-radius:12px;">
+              <small>Current Balance</small>
+              <strong>₹{{ '%.2f'|format(user.balance|float) }}</strong>
+            </div>
+            <div class="mini-stat" style="padding:10px 12px; border-radius:12px;">
+              <small>Daily Limit</small>
+              <strong>{{ user.daily_limit }}</strong>
+            </div>
+            <div class="mini-stat" style="padding:10px 12px; border-radius:12px;">
+              <small>Used Today</small>
+              <strong>{{ used_today }} / {{ user.daily_limit }}</strong>
+            </div>
+          </div>
+          <form method="post" action="/transaction">
+            <div class="form-grid">
+              <div>
+                <label>Transaction Amount</label>
+                <input name="transaction_amount" type="number" step="0.01" placeholder="Amount" required>
+              </div>
+              <div>
+                <label>Transaction Hour</label>
+                <select name="transaction_hour" required>
+                  {% for hour in range(24) %}
+                  <option value="{{ hour }}">{{ (hour % 12 or 12) }} {% if hour < 12 %}AM{% else %}PM{% endif %}</option>
+                  {% endfor %}
+                </select>
+              </div>
+              <div>
+                <label>Transactions Last Hour</label>
+                <input name="transactions_last_hour" type="number" min="0" placeholder="Count" required>
+              </div>
+              <div>
+                <label>Failed PIN Attempts</label>
+                <input name="failed_pin_attempts" type="number" min="0" placeholder="Attempts" required>
+              </div>
+              <div>
+                <label>Account Age Days</label>
+                <input name="account_age_days" type="number" min="0" placeholder="Days" required>
+              </div>
+              <div>
+                <label>Merchant Category</label>
+                <select name="merchant_category" required>
+                  {% for category in merchant_categories %}
+                  <option value="{{ category }}">{{ category }}</option>
+                  {% endfor %}
+                </select>
+              </div>
+              <div>
+                <label>Country Risk</label>
+                <select name="country_risk" required>
+                  <option value="0">Low Risk Country</option>
+                  <option value="1">High Risk Country</option>
+                </select>
+              </div>
+              <div>
+                <label>Card Present</label>
+                <select name="card_present" required>
+                  <option value="1">Card Present</option>
+                  <option value="0">Card Not Present</option>
+                </select>
+              </div>
+              <div>
+                <label>Transaction Type</label>
+                <select name="online_transaction" required>
+                  <option value="1">Online</option>
+                  <option value="0">Offline</option>
+                </select>
+              </div>
+              <div class="full" style="display:flex; gap:10px; margin-top:6px;">
+                <button class="btn-ghost" type="reset">Reset</button>
+                <button class="btn-primary" type="submit">Analyze Transaction</button>
+              </div>
+            </div>
+          </form>
+        </div>
+
+        <div class="card">
+          <div class="section-head">
+            <h3>Risk Intelligence</h3>
+            <span class="badge danger"><i class="fa-solid fa-shield-virus"></i> Live</span>
+          </div>
+          <div class="risk-meter"><span id="riskMeterFill" data-risk-score="{{ result.risk_score if result else 0 }}"></span></div>
+          <p id="riskMeterText" style="margin-top:10px; color: var(--muted);">Current risk meter: {{ result.risk_score if result else 0 }}%</p>
+          <div id="riskResultBox" class="flash" style="margin-top:12px;">
+            {% if result %}
+            <strong>Status:</strong> {{ result.status }}<br>
+            <strong>Prediction:</strong> {{ result.prediction }}<br>
+            <strong>Balance After:</strong> ₹{{ result.balance_after }}
+            {% else %}
+            Submit a transaction to receive a fraud prediction and detailed explanation.
+            {% endif %}
+          </div>
+        </div>
+      </section>
+
+      <section class="grid-2">
+        <div class="summary-card">
+          <div class="section-head">
+            <h3>Prediction Factors</h3>
+            <span class="badge info"><i class="fa-solid fa-magnifying-glass-chart"></i> Why</span>
+          </div>
+          {% if result %}
+          <ul style="margin: 0; padding-left: 18px; color: var(--muted); line-height: 1.8;">
+            {% for factor in result.explanations %}
+            <li>{{ factor }}</li>
+            {% endfor %}
+          </ul>
+          {% else %}
+          <p style="margin:0; color: var(--muted);">Prediction explanation will appear here after analysis.</p>
+          {% endif %}
+        </div>
+      </section>
+
+      <section class="card">
+        <div class="section-head">
+          <h3>Balance Top-Up</h3>
+          <span class="badge medium"><i class="fa-solid fa-wallet"></i> Funds</span>
+        </div>
+        <div class="form-grid">
+          <div class="full">
+            <p style="margin: 0 0 12px; color: var(--muted);">Your current balance is ₹{{ user.balance }}. Add funds to continue making secure transactions.</p>
+          </div>
+          <div class="full">
+            <form method="post" action="/deposit">
+              <input name="deposit_amount" type="number" step="0.01" min="0.01" placeholder="Amount to add" required>
+              <div style="display:flex; gap:10px; margin-top:12px;">
+                <button class="btn-secondary" type="submit">Add Funds</button>
+              </div>
+            </form>
+          </div>
+        </div>
+      </section>
+    </main>
+  </div>
+  <script src="{{ url_for('static', filename='theme.js') }}"></script>
+  <script>
+    function updateRiskMeter() {
+      document.querySelectorAll('[data-risk-score]').forEach(el => {
+        const value = Number(el.getAttribute('data-risk-score')) || 0;
+        el.style.width = `${Math.min(Math.max(value, 0), 100)}%`;
+      });
+    }
+
+    function clearResultPanel() {
+      const meter = document.getElementById('riskMeterFill');
+      const text = document.getElementById('riskMeterText');
+      const box = document.getElementById('riskResultBox');
+      const factors = document.querySelector('.summary-card');
+      if (meter) {
+        meter.setAttribute('data-risk-score', '0');
+        meter.style.width = '0%';
+      }
+      if (text) {
+        text.textContent = 'Current risk meter: 0%';
+      }
+      if (box) {
+        box.innerHTML = 'Submit a transaction to receive a fraud prediction and detailed explanation.';
+      }
+      if (factors) {
+        const list = factors.querySelector('ul');
+        const placeholder = factors.querySelector('p');
+        if (list) list.remove();
+        if (!placeholder) {
+          const emptyState = document.createElement('p');
+          emptyState.textContent = 'Prediction explanation will appear here after analysis.';
+          emptyState.style.margin = '0';
+          emptyState.style.color = 'var(--muted)';
+          factors.appendChild(emptyState);
+        }
+      }
+    }
+
+    updateRiskMeter();
+
+    document.addEventListener('DOMContentLoaded', () => {
+      const form = document.querySelector('form[action="/transaction"]');
+      if (form) {
+        form.addEventListener('submit', () => {
+          clearResultPanel();
+        });
+
+        const resetButton = form.querySelector('button[type="reset"]');
+        if (resetButton) {
+          resetButton.addEventListener('click', () => {
+            clearResultPanel();
+          });
+        }
+      }
+    });
+  </script>
+</body>
+</html>

@@ -1,0 +1,104 @@
+﻿<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>FraudShield Reports</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.2/css/all.min.css">
+  <link rel="stylesheet" href="{{ url_for('static', filename='fintech.css') }}">
+  <style>
+    .filter-actions {
+      display: flex;
+      gap: 12px;
+      flex-wrap: wrap;
+    }
+
+    .filter-actions button,
+    .filter-actions a {
+      flex: 1;
+      min-width: 140px;
+    }
+
+    .btn-pdf {
+      background: var(--danger) !important;
+    }
+  </style>
+</head>
+<body>
+  <div class="app-shell">
+    <aside class="sidebar">
+      <div class="brand">
+        <div class="brand-icon"><i class="fa-solid fa-shield-halved"></i></div>
+        <div>
+          <h4>FraudShield</h4>
+          <small>Reporting Suite</small>
+        </div>
+      </div>
+      <nav class="nav-links">
+        <a class="nav-link" href="/dashboard"><i class="fa-solid fa-gauge-high"></i> Dashboard</a>
+        <a class="nav-link" href="/transaction"><i class="fa-solid fa-arrow-right-arrow-left"></i> Transaction Monitoring</a>
+        <a class="nav-link" href="/history"><i class="fa-solid fa-clock-rotate-left"></i> History</a>
+        <a class="nav-link" href="/alerts"><i class="fa-solid fa-bell"></i> Alerts</a>
+        <a class="nav-link active" href="/report"><i class="fa-solid fa-file-lines"></i> Reports</a>
+        <a class="nav-link" href="/logout"><i class="fa-solid fa-right-from-bracket"></i> Logout</a>
+      </nav>
+    </aside>
+
+    <main class="main-content">
+      <section class="page-header">
+        <h1>Reports</h1>
+        <p>Filter, review, and export your transaction activity with clear risk summaries.</p>
+      </section>
+
+      <section class="card">
+        <div class="section-head">
+          <h3>Report</h3>
+        </div>
+        <form class="form-grid" method="get" action="/report">
+          <div><label>Start Date</label><input type="date" name="start_date" value="{{ filters.get('start_date','') }}"></div>
+          <div><label>End Date</label><input type="date" name="end_date" value="{{ filters.get('end_date','') }}"></div>
+          <div><label>Status</label><select name="status"><option value="">All Status</option><option value="APPROVED" {% if filters.get('status')=='APPROVED' %}selected{% endif %}>Approved</option><option value="BLOCKED" {% if filters.get('status')=='BLOCKED' %}selected{% endif %}>Blocked</option><option value="REJECTED" {% if filters.get('status')=='REJECTED' %}selected{% endif %}>Rejected</option></select></div>
+          <div><label>Risk Level</label><select name="risk_level"><option value="">All Risk Levels</option><option value="SAFE" {% if filters.get('risk_level')=='SAFE' %}selected{% endif %}>Safe</option><option value="MEDIUM" {% if filters.get('risk_level')=='MEDIUM' %}selected{% endif %}>Medium Risk</option><option value="HIGH" {% if filters.get('risk_level')=='HIGH' %}selected{% endif %}>High Risk</option></select></div>
+          <div class="full filter-actions"><button class="btn-primary" type="submit"><i class="fa-solid fa-filter"></i> Apply Filters</button><a class="btn-secondary btn-pdf" href="/download_report?{{ request.query_string.decode('utf-8') }}"><i class="fa-solid fa-file-pdf"></i> Download PDF</a><a class="btn-secondary" href="/download_excel?{{ request.query_string.decode('utf-8') }}"><i class="fa-solid fa-file-excel"></i> Download Excel</a></div>
+        </form>
+      </section>
+
+      <section class="stat-grid">
+        <div class="stat-card"><div class="stat-label">Report Range</div><div class="stat-value">{{ filters.get('start_date', 'Beginning') or 'Beginning' }} → {{ filters.get('end_date', 'Now') or 'Now' }}</div></div>
+        <div class="stat-card"><div class="stat-label">Total Transactions</div><div class="stat-value">{{ total }}</div></div>
+        <div class="stat-card"><div class="stat-label">Fraud Transactions</div><div class="stat-value">{{ frauds }}</div></div>
+        <div class="stat-card"><div class="stat-label">Blocked Transactions</div><div class="stat-value">{{ blocked }}</div></div>
+        <div class="stat-card"><div class="stat-label">Safe Transactions</div><div class="stat-value">{{ total - frauds - blocked }}</div></div>
+      </section>
+
+      <section class="table-card">
+        <div class="section-head">
+          <h3>Transaction Summary</h3>
+          <span class="badge info"><i class="fa-solid fa-chart-line"></i> Export-ready</span>
+        </div>
+        <div class="table-responsive">
+          <table>
+            <thead>
+              <tr><th>Date</th><th>Amount</th><th>Prediction</th><th>Risk Score</th><th>Status</th><th>Balance After</th></tr>
+            </thead>
+            <tbody>
+              {% for row in data %}
+              <tr>
+                <td>{{ row.display_date or row.created_at or row.timestamp or row.updated_at or 'N/A' }}</td>
+                <td>₹ {{ row.amount }}</td>
+                <td>{{ row.prediction }}</td>
+                <td><span class="badge {{ 'danger' if row.risk_score|float >= 80 else 'medium' if row.risk_score|float >= 40 else 'safe' }}">{{ row.risk_score }}%</span></td>
+                <td>{{ row.status }}</td>
+                <td>₹ {{ row.balance_after if row.balance_after is not none else 'N/A' }}</td>
+              </tr>
+              {% endfor %}
+            </tbody>
+          </table>
+        </div>
+      </section>
+    </main>
+  </div>
+</html>

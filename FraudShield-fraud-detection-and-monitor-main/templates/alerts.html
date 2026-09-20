@@ -1,0 +1,445 @@
+﻿<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>FraudShield Alerts</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.2/css/all.min.css">
+  <link rel="stylesheet" href="{{ url_for('static', filename='fintech.css') }}">
+  <style>
+    .section-head {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      gap: 12px;
+      margin-bottom: 12px;
+    }
+
+    .section-head h3 {
+      margin: 0;
+      font-size: 1.2rem;
+      color: var(--text);
+    }
+
+    .alerts-header {
+      margin-bottom: 24px;
+    }
+
+    .alerts-header h1 {
+      margin: 0;
+      font-size: 1.8rem;
+      font-weight: 700;
+      color: var(--text);
+    }
+
+    .alerts-header p {
+      margin: 4px 0 0 0;
+      color: var(--muted);
+      font-size: 0.95rem;
+    }
+
+    .filter-section {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 16px;
+      margin-bottom: 20px;
+      flex-wrap: wrap;
+    }
+
+    .filter-pills {
+      display: flex;
+      gap: 10px;
+      flex-wrap: wrap;
+    }
+
+    .filter-pill {
+      padding: 8px 14px;
+      border: 1px solid var(--line);
+      background: var(--panel-2);
+      border-radius: 999px;
+      cursor: pointer;
+      font-size: 0.85rem;
+      font-weight: 500;
+      color: var(--muted);
+      transition: all 0.2s ease;
+    }
+
+    .filter-pill:hover {
+      border-color: var(--primary);
+      color: var(--primary);
+    }
+
+    .filter-pill.active {
+      background: var(--primary);
+      color: #fff;
+      border-color: var(--primary);
+    }
+
+    .alerts-grid {
+      display: grid;
+      gap: 16px;
+    }
+
+    .alert-card {
+      background: var(--panel);
+      border: 1px solid var(--line);
+      border-radius: 18px;
+      border-left: 4px solid var(--line);
+      padding: 18px;
+      display: flex;
+      justify-content: space-between;
+      align-items: flex-start;
+      transition: all 0.2s ease;
+    }
+
+    .alert-card:hover {
+      transform: translateY(-2px);
+      box-shadow: var(--shadow);
+    }
+
+    .alert-card.high-risk {
+      border-left-color: var(--danger);
+    }
+
+    .alert-card.medium-risk {
+      border-left-color: var(--warning);
+    }
+
+    .alert-card.blocked {
+      border-left-color: #f97316;
+    }
+
+    .alert-card.safe {
+      border-left-color: var(--success);
+    }
+
+    .alert-left {
+      display: flex;
+      gap: 14px;
+      flex: 1;
+    }
+
+    .alert-icon {
+      width: 48px;
+      height: 48px;
+      border-radius: 12px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 20px;
+      flex-shrink: 0;
+    }
+
+    .alert-icon.high-risk {
+      background: rgba(239, 68, 68, 0.16);
+      color: var(--danger);
+    }
+
+    .alert-icon.medium-risk {
+      background: rgba(245, 158, 11, 0.16);
+      color: var(--warning);
+    }
+
+    .alert-icon.blocked {
+      background: rgba(249, 115, 22, 0.16);
+      color: #f97316;
+    }
+
+    .alert-icon.safe {
+      background: rgba(34, 197, 94, 0.16);
+      color: var(--success);
+    }
+
+    .alert-content {
+      flex: 1;
+    }
+
+    .alert-title {
+      font-size: 0.95rem;
+      font-weight: 600;
+      color: var(--text);
+      margin: 0 0 4px 0;
+    }
+
+    .alert-description {
+      font-size: 0.85rem;
+      color: var(--muted);
+      margin: 0;
+      line-height: 1.4;
+    }
+
+    .alert-right {
+      display: flex;
+      flex-direction: column;
+      align-items: flex-end;
+      gap: 10px;
+      min-width: 120px;
+      margin-left: 20px;
+    }
+
+    .alert-risk {
+      display: flex;
+      flex-direction: column;
+      align-items: flex-end;
+    }
+
+    .alert-risk-label {
+      font-size: 0.75rem;
+      color: var(--muted);
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+      font-weight: 600;
+      margin-bottom: 2px;
+    }
+
+    .alert-risk-value {
+      font-size: 1.1rem;
+      font-weight: 700;
+      color: var(--text);
+    }
+
+    .alert-risk-value.high {
+      color: var(--danger);
+    }
+
+    .alert-risk-value.medium {
+      color: var(--warning);
+    }
+
+    .alert-risk-value.low {
+      color: var(--success);
+    }
+
+    .alert-datetime {
+      text-align: right;
+    }
+
+    .alert-date {
+      font-size: 0.85rem;
+      font-weight: 500;
+      color: var(--text);
+    }
+
+    .no-alerts {
+      text-align: center;
+      padding: 60px 20px;
+    }
+
+    .no-alerts-icon {
+      font-size: 48px;
+      color: var(--muted);
+      margin-bottom: 16px;
+      opacity: 0.5;
+    }
+
+    .no-alerts-text {
+      font-size: 0.95rem;
+      color: var(--muted);
+      margin: 0;
+    }
+
+    @media (max-width: 768px) {
+      .alert-card {
+        flex-direction: column;
+      }
+
+      .alert-right {
+        width: 100%;
+        align-items: flex-start;
+        flex-direction: row;
+        justify-content: space-between;
+        margin-left: 0;
+        margin-top: 12px;
+        padding-top: 12px;
+        border-top: 1px solid var(--line);
+      }
+
+      .alert-datetime {
+        text-align: left;
+      }
+
+      .filter-section {
+        justify-content: flex-start;
+      }
+
+      .search-container input {
+        max-width: 100%;
+      }
+
+      .filter-pills {
+        margin-bottom: 12px;
+      }
+    }
+  </style>
+</head>
+<body>
+  <div class="app-shell">
+    <aside class="sidebar">
+      <div class="brand">
+        <div class="brand-icon"><i class="fa-solid fa-shield-halved"></i></div>
+        <div>
+          <h4>FraudShield</h4>
+          <small>Alert Center</small>
+        </div>
+      </div>
+      <nav class="nav-links">
+        <a class="nav-link" href="/dashboard"><i class="fa-solid fa-gauge-high"></i> Dashboard</a>
+        <a class="nav-link" href="/transaction"><i class="fa-solid fa-arrow-right-arrow-left"></i> Transaction Monitoring</a>
+        <a class="nav-link" href="/history"><i class="fa-solid fa-clock-rotate-left"></i> History</a>
+        <a class="nav-link active" href="/alerts"><i class="fa-solid fa-bell"></i> Alerts</a>
+        <a class="nav-link" href="/report"><i class="fa-solid fa-file-lines"></i> Reports</a>
+        <a class="nav-link" href="/logout"><i class="fa-solid fa-right-from-bracket"></i> Logout</a>
+      </nav>
+    </aside>
+
+    <main class="main-content">
+      <div class="alerts-header">
+        <h1>Alerts</h1>
+        <p>View fraud and security alerts</p>
+      </div>
+
+      <div class="filter-section">
+        <div class="filter-pills">
+          <button class="filter-pill active" data-filter="all">All Alerts</button>
+          <button class="filter-pill" data-filter="fraud">Fraud</button>
+          <button class="filter-pill" data-filter="blocked">Blocked</button>
+        </div>
+      </div>
+
+      <section class="card">
+        <div class="alerts-grid" id="alertsContainer">
+          {% if alerts %}
+            {% for alert in alerts %}
+            <div class="alert-card" 
+                 data-alert-type="{% if alert.status|upper in ['BLOCKED','REJECTED'] %}blocked{% elif alert.prediction|upper == 'FRAUD' and alert.risk_score|float >= 80 %}high-risk{% elif alert.risk_score|float >= 40 and alert.risk_score|float < 80 %}medium-risk{% else %}safe{% endif %}"
+                 data-search-text="{{ alert.rule_reason|lower }} {{ alert.status|lower }} {{ alert.prediction|lower }}">
+              <div class="alert-left">
+                <div class="alert-icon {% if alert.status|upper in ['BLOCKED','REJECTED'] %}blocked{% elif alert.prediction|upper == 'FRAUD' and alert.risk_score|float >= 80 %}high-risk{% elif alert.risk_score|float >= 40 and alert.risk_score|float < 80 %}medium-risk{% else %}safe{% endif %}">
+                  {% if alert.status|upper in ['BLOCKED','REJECTED'] %}
+                    <i class="fa-solid fa-lock"></i>
+                  {% elif alert.prediction|upper == 'FRAUD' and alert.risk_score|float >= 80 %}
+                    <i class="fa-solid fa-triangle-exclamation"></i>
+                  {% elif alert.risk_score|float >= 40 and alert.risk_score|float < 80 %}
+                    <i class="fa-solid fa-exclamation"></i>
+                  {% else %}
+                    <i class="fa-solid fa-check-circle"></i>
+                  {% endif %}
+                </div>
+                <div class="alert-content">
+                  <h3 class="alert-title">
+                    {% if alert.status|upper in ['BLOCKED','REJECTED'] %}
+                      {{ alert.status }} Transaction
+                    {% elif alert.prediction|upper == 'FRAUD' %}
+                      Fraud Detected
+                    {% elif alert.risk_score|float >= 40 %}
+                      Medium Risk Alert
+                    {% else %}
+                      Safe Transaction
+                    {% endif %}
+                  </h3>
+                  <p class="alert-description">{{ alert.rule_reason }}</p>
+                </div>
+              </div>
+              <div class="alert-right">
+                <div class="alert-risk">
+                  <span class="alert-risk-label">Risk Score</span>
+                  <span class="alert-risk-value {% if alert.risk_score|float >= 80 %}high{% elif alert.risk_score|float >= 40 %}medium{% else %}low{% endif %}">
+                    {{ alert.risk_score }}%
+                  </span>
+                </div>
+                <div class="alert-datetime">
+                  <div class="alert-date">
+                    {% if alert.display_date %}
+                      {{ alert.display_date.split(' ')[0] if ' ' in alert.display_date|string else alert.display_date }}
+                    {% else %}
+                      N/A
+                    {% endif %}
+                  </div>
+                </div>
+              </div>
+            </div>
+            {% endfor %}
+          {% else %}
+            <div class="no-alerts">
+              <div class="no-alerts-icon">
+                <i class="fa-solid fa-inbox"></i>
+              </div>
+              <p class="no-alerts-text">No alerts at this time. Your account is secure.</p>
+            </div>
+          {% endif %}
+        </div>
+      </section>
+    </main>
+  </div>
+
+  <script>
+    document.addEventListener('DOMContentLoaded', () => {
+      const filterPills = document.querySelectorAll('.filter-pill');
+      const alertCards = document.querySelectorAll('.alert-card');
+      let currentFilter = 'all';
+
+      // Filter functionality
+      filterPills.forEach(pill => {
+        pill.addEventListener('click', () => {
+          filterPills.forEach(p => p.classList.remove('active'));
+          pill.classList.add('active');
+          currentFilter = pill.dataset.filter;
+          applyFilters();
+        });
+      });
+
+      function applyFilters() {
+        let visibleCount = 0;
+
+        alertCards.forEach(card => {
+          const alertType = card.dataset.alertType;
+
+          // Filter by type
+          let typeMatch = currentFilter === 'all';
+          if (currentFilter === 'fraud') {
+            typeMatch = alertType === 'high-risk';
+          } else if (currentFilter === 'blocked') {
+            typeMatch = alertType === 'blocked';
+          } else if (currentFilter === 'medium-risk') {
+            typeMatch = alertType === 'medium-risk';
+          }
+
+          // Show or hide card
+          if (typeMatch) {
+            card.style.display = '';
+            visibleCount++;
+          } else {
+            card.style.display = 'none';
+          }
+        });
+
+        // Show no results message if needed
+        const container = document.getElementById('alertsContainer');
+        if (visibleCount === 0 && alertCards.length > 0) {
+          let noResultsDiv = document.querySelector('.no-results-filter');
+          if (!noResultsDiv) {
+            noResultsDiv = document.createElement('div');
+            noResultsDiv.className = 'no-alerts no-results-filter';
+            noResultsDiv.innerHTML = `
+              <div class="no-alerts-icon">
+                <i class="fa-solid fa-inbox"></i>
+              </div>
+              <p class="no-alerts-text">No results found.</p>
+            `;
+            container.appendChild(noResultsDiv);
+          }
+        } else {
+          const noResultsDiv = document.querySelector('.no-results-filter');
+          if (noResultsDiv) {
+            noResultsDiv.remove();
+          }
+        }
+      }
+    });
+  </script>
+</body>
+</html>

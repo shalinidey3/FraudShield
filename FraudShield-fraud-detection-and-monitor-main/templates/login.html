@@ -1,0 +1,44 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>FraudShield Login</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.2/css/all.min.css">
+  <link rel="stylesheet" href="{{ url_for('static', filename='fintech.css') }}">
+</head>
+<body>
+  <div class="auth-shell">
+    <section class="auth-card">
+      <div class="auth-card-inner">
+        <div class="auth-brand">
+          <div class="brand-icon"><i class="fa-solid fa-shield-halved"></i></div>
+          <div>
+            <h3>FraudShield</h3>
+            <p>Secure transaction access</p>
+          </div>
+        </div>
+        <h2>Login to your account</h2>
+        {% with messages = get_flashed_messages() %}
+          {% if messages %}
+            <div class="flash">{{ messages[0] }}</div>
+          {% endif %}
+        {% endwith %}
+        <form method="post" action="/login">
+          <label>Email</label>
+          <input type="email" name="email" placeholder="name@bank.com" required>
+          <label>Password</label>
+          <input type="password" name="password" placeholder="••••••••" required>
+          <div class="auth-links">
+            <a href="/register">Create account</a>
+          </div>
+          <button class="btn-primary" type="submit">Sign in</button>
+        </form>
+      </div>
+    </section>
+  </div>
+</body>
+</html>
