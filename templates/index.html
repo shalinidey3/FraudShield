@@ -229,10 +229,6 @@
     document.addEventListener('DOMContentLoaded', () => {
       const form = document.querySelector('form[action="/transaction"]');
       if (form) {
-        form.addEventListener('submit', () => {
-          clearResultPanel();
-        });
-
         const resetButton = form.querySelector('button[type="reset"]');
         if (resetButton) {
           resetButton.addEventListener('click', () => {
