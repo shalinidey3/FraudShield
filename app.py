@@ -370,6 +370,7 @@ def init_db():
     add_column_if_missing(cur, "transactions", "balance_after REAL")
     add_column_if_missing(cur, "transactions", "created_at DATETIME")
     add_column_if_missing(cur, "transactions", "updated_at DATETIME")
+    add_column_if_missing(cur, "transactions", "timestamp DATETIME")
 
     add_column_if_missing(cur, "alerts", "user_id INTEGER")
     add_column_if_missing(cur, "alerts", "reason TEXT")
