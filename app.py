@@ -931,7 +931,7 @@ def transaction():
 
             try:
                 prediction = model.predict([features])[0]
-                probability = model.predict_proba([features])[0][1]
+                probability = float(model.predict_proba([features])[0][1])
             except Exception:
                 traceback.print_exc()
                 prediction = 0
