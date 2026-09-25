@@ -3,7 +3,8 @@ import importlib
 import importlib.util
 import os
 import smtplib
-import sqlite3
+import psycopg2
+import psycopg2.extras
 import threading
 import traceback
 import hashlib
@@ -117,7 +118,7 @@ def add_no_cache_headers(response):
 
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
 load_dotenv(os.path.join(BASE_DIR, ".env"))
-DB_PATH = os.path.join(BASE_DIR, "database", "fraud.db")
+DATABASE_URL = os.getenv("DATABASE_URL")
 MODEL_PATH = os.path.join(BASE_DIR, "models", "model.pkl")
 ENCODER_PATH = os.path.join(BASE_DIR, "models", "merchant_encoder.pkl")
 
@@ -146,25 +147,46 @@ EMAIL_FROM = os.getenv("EMAIL_FROM", "").strip() or EMAIL_USER
 
 
 def get_db_connection():
-    conn = sqlite3.connect(DB_PATH)
-    conn.row_factory = sqlite3.Row
-    return conn
+    if not DATABASE_URL:
+        raise RuntimeError("DATABASE_URL is not configured")
+    return psycopg2.connect(
+        DATABASE_URL,
+        cursor_factory=psycopg2.extras.RealDictCursor
+    )
 
 
 def get_columns(table_name):
     conn = get_db_connection()
     cur = conn.cursor()
-    cur.execute(f"PRAGMA table_info({table_name})")
-    columns = {row[1] for row in cur.fetchall()}
+    cur.execute(
+        """
+        SELECT column_name
+        FROM information_schema.columns
+        WHERE table_schema = 'public' AND table_name = %s
+        """,
+        (table_name,)
+    )
+    columns = {row["column_name"] for row in cur.fetchall()}
     conn.close()
     return columns
 
 
 def add_column_if_missing(cur, table_name, column_sql):
     column_name = column_sql.split()[0]
-    existing = {row[1] for row in cur.execute(f"PRAGMA table_info({table_name})").fetchall()}
-    if column_name not in existing:
-        cur.execute(f"ALTER TABLE {table_name} ADD COLUMN {column_sql}")
+    cur.execute(
+        """
+        SELECT 1
+        FROM information_schema.columns
+        WHERE table_schema = 'public'
+          AND table_name = %s
+          AND column_name = %s
+        """,
+        (table_name, column_name)
+    )
+    if cur.fetchone() is None:
+        cur.execute(
+            f"ALTER TABLE {table_name} ADD COLUMN {column_sql}"
+        )
 
 
 def get_now():
@@ -282,7 +304,7 @@ def init_db():
     cur.execute(
         """
         CREATE TABLE IF NOT EXISTS users(
-            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            id BIGSERIAL PRIMARY KEY,
             full_name TEXT NOT NULL,
             email TEXT NOT NULL UNIQUE,
             phone TEXT NOT NULL,
@@ -295,8 +317,9 @@ def init_db():
             max_transaction_amount REAL NOT NULL,
             transaction_count_today INTEGER DEFAULT 0,
             last_transaction_date TEXT,
-            created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
-            updated_at DATETIME DEFAULT CURRENT_TIMESTAMP
+            otp_preference INTEGER DEFAULT 0,
+            created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+            updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
         )
         """
     )
@@ -304,8 +327,8 @@ def init_db():
     cur.execute(
         """
         CREATE TABLE IF NOT EXISTS transactions(
-            id INTEGER PRIMARY KEY AUTOINCREMENT,
-            user_id INTEGER NOT NULL,
+            id BIGSERIAL PRIMARY KEY,
+            user_id BIGINT NOT NULL,
             amount REAL NOT NULL,
             transaction_hour INTEGER NOT NULL,
             transaction_place TEXT NOT NULL,
@@ -322,8 +345,9 @@ def init_db():
             status TEXT NOT NULL,
             rule_reason TEXT,
             balance_after REAL,
-            created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
-            updated_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+            created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+            updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+            timestamp TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
             FOREIGN KEY(user_id) REFERENCES users(id)
         )
         """
@@ -332,14 +356,14 @@ def init_db():
     cur.execute(
         """
         CREATE TABLE IF NOT EXISTS alerts(
-            id INTEGER PRIMARY KEY AUTOINCREMENT,
-            user_id INTEGER NOT NULL,
-            transaction_id INTEGER,
+            id BIGSERIAL PRIMARY KEY,
+            user_id BIGINT NOT NULL,
+            transaction_id BIGINT,
             alert_level TEXT NOT NULL,
             message TEXT NOT NULL,
             reason TEXT,
             status TEXT NOT NULL,
-            timestamp DATETIME DEFAULT CURRENT_TIMESTAMP,
+            timestamp TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
             FOREIGN KEY(user_id) REFERENCES users(id)
         )
         """
@@ -353,9 +377,12 @@ def init_db():
     add_column_if_missing(cur, "users", "transaction_count_today INTEGER DEFAULT 0")
     add_column_if_missing(cur, "users", "last_transaction_date TEXT")
     add_column_if_missing(cur, "users", "otp_preference INTEGER DEFAULT 0")
-    cur.execute("UPDATE users SET otp_preference = 0 WHERE otp_preference IS NULL")
 
-    add_column_if_missing(cur, "transactions", "user_id INTEGER")
+    cur.execute(
+        "UPDATE users SET otp_preference = 0 WHERE otp_preference IS NULL"
+    )
+
+    add_column_if_missing(cur, "transactions", "user_id BIGINT")
     add_column_if_missing(cur, "transactions", "transaction_hour INTEGER DEFAULT 0")
     add_column_if_missing(cur, "transactions", "transaction_place TEXT DEFAULT 'Unknown'")
     add_column_if_missing(cur, "transactions", "transactions_last_hour INTEGER DEFAULT 0")
@@ -368,11 +395,11 @@ def init_db():
     add_column_if_missing(cur, "transactions", "status TEXT DEFAULT 'APPROVED'")
     add_column_if_missing(cur, "transactions", "rule_reason TEXT")
     add_column_if_missing(cur, "transactions", "balance_after REAL")
-    add_column_if_missing(cur, "transactions", "created_at DATETIME")
-    add_column_if_missing(cur, "transactions", "updated_at DATETIME")
-    add_column_if_missing(cur, "transactions", "timestamp DATETIME")
+    add_column_if_missing(cur, "transactions", "created_at TIMESTAMP")
+    add_column_if_missing(cur, "transactions", "updated_at TIMESTAMP")
+    add_column_if_missing(cur, "transactions", "timestamp TIMESTAMP")
 
-    add_column_if_missing(cur, "alerts", "user_id INTEGER")
+    add_column_if_missing(cur, "alerts", "user_id BIGINT")
     add_column_if_missing(cur, "alerts", "reason TEXT")
     add_column_if_missing(cur, "alerts", "status TEXT DEFAULT 'OPEN'")
 
@@ -477,7 +504,7 @@ def current_user():
 def get_user_by_id(user_id):
     conn = get_db_connection()
     cur = conn.cursor()
-    cur.execute("SELECT * FROM users WHERE id = ?", (user_id,))
+    cur.execute("SELECT * FROM users WHERE id = %s", (user_id,))
     user = cur.fetchone()
     conn.close()
     return dict(user) if user is not None else None
@@ -486,16 +513,18 @@ def get_user_by_id(user_id):
 def get_user_by_email(email):
     conn = get_db_connection()
     cur = conn.cursor()
-    cur.execute("SELECT * FROM users WHERE email = ?", (email,))
+    cur.execute("SELECT * FROM users WHERE email = %s", (email,))
     user = cur.fetchone()
     conn.close()
     return dict(user) if user is not None else None
 
 
 def normalize_user(user):
-    if isinstance(user, sqlite3.Row):
-        return dict(user)
-    return user
+    if user is None:
+        return None
+    if isinstance(user, dict):
+        return user
+    return dict(user)
 
 
 def get_today_transaction_count(user_id):
@@ -505,10 +534,11 @@ def get_today_transaction_count(user_id):
     date_col = get_datetime_column("transactions")
     offset = get_timezone_sql_offset()
     cur.execute(
-        f"SELECT COUNT(*) FROM transactions WHERE user_id = ? AND date(datetime({date_col}, '{offset}')) = ?",
+        f"SELECT COUNT(*) FROM transactions WHERE user_id = %s AND DATE(({date_col} AT TIME ZONE 'UTC') + INTERVAL '{offset}') = %s",
         (user_id, today),
     )
-    count = cur.fetchone()[0]
+    count_row = cur.fetchone()
+    count = list(count_row.values())[0] if count_row else 0
     conn.close()
     return count
 
@@ -538,7 +568,7 @@ def increment_analysis_clicks(user_id):
     conn = get_db_connection()
     cur = conn.cursor()
     cur.execute(
-        "UPDATE users SET transaction_count_today = ?, last_transaction_date = ?, updated_at = CURRENT_TIMESTAMP WHERE id = ?",
+        "UPDATE users SET transaction_count_today = %s, last_transaction_date = %s, updated_at = CURRENT_TIMESTAMP WHERE id = %s",
         (count_today, today, user_id),
     )
     conn.commit()
@@ -549,7 +579,7 @@ def create_alert(user_id, transaction_id, alert_level, message, reason, status):
     conn = get_db_connection()
     cur = conn.cursor()
     cur.execute(
-        "INSERT INTO alerts(user_id, transaction_id, alert_level, message, reason, status) VALUES (?, ?, ?, ?, ?, ?)",
+        "INSERT INTO alerts(user_id, transaction_id, alert_level, message, reason, status) VALUES (%s, %s, %s, %s, %s, %s)",
         (user_id, transaction_id, alert_level, message, reason, status),
     )
     conn.commit()
@@ -612,8 +642,8 @@ def explain_transaction(features, user, transaction_data):
 def build_report_query(user_id, args):
     date_col = get_datetime_column("transactions")
     offset = get_timezone_sql_offset()
-    local_date_expr = f"date(datetime({date_col}, '{offset}'))"
-    query = "SELECT *, COALESCE(created_at, timestamp, updated_at) AS display_date FROM transactions WHERE user_id = ?"
+    local_date_expr = f"DATE(({date_col} AT TIME ZONE 'UTC') + INTERVAL '{offset}')"
+    query = "SELECT *, COALESCE(created_at, timestamp, updated_at) AS display_date FROM transactions WHERE user_id = %s"
     params = [user_id]
 
     start_date = args.get("start_date")
@@ -622,13 +652,13 @@ def build_report_query(user_id, args):
     risk_level = args.get("risk_level")
 
     if start_date:
-        query += f" AND {local_date_expr} >= ?"
+        query += f" AND {local_date_expr} >= %s"
         params.append(start_date)
     if end_date:
-        query += f" AND {local_date_expr} <= ?"
+        query += f" AND {local_date_expr} <= %s"
         params.append(end_date)
     if status:
-        query += " AND status = ?"
+        query += " AND status = %s"
         params.append(status)
     if risk_level == "SAFE":
         query += " AND risk_score < 40"
@@ -680,7 +710,7 @@ def register():
         conn = get_db_connection()
         cur = conn.cursor()
         cur.execute(
-            "INSERT INTO users(full_name, email, phone, password_hash, bank_name, card_number, account_number, balance, daily_limit, max_transaction_amount, transaction_count_today, last_transaction_date, otp_preference) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
+            "INSERT INTO users(full_name, email, phone, password_hash, bank_name, card_number, account_number, balance, daily_limit, max_transaction_amount, transaction_count_today, last_transaction_date, otp_preference) VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)",
             (
                 full_name,
                 email,
@@ -987,7 +1017,7 @@ def transaction():
                     status,
                     rule_reason,
                     balance_after
-                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                ) VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
                 """,
                 (
                     user["id"],
@@ -1073,7 +1103,7 @@ def update_user_balance(user_id, new_balance):
     conn = get_db_connection()
     cur = conn.cursor()
     cur.execute(
-        "UPDATE users SET balance = ?, updated_at = CURRENT_TIMESTAMP WHERE id = ?",
+        "UPDATE users SET balance = %s, updated_at = CURRENT_TIMESTAMP WHERE id = %s",
         (new_balance, user_id),
     )
     conn.commit()
@@ -1092,7 +1122,7 @@ def deposit_user_balance(user_id, amount):
     conn = get_db_connection()
     cur = conn.cursor()
     cur.execute(
-        "UPDATE users SET balance = ?, updated_at = CURRENT_TIMESTAMP WHERE id = ?",
+        "UPDATE users SET balance = %s, updated_at = CURRENT_TIMESTAMP WHERE id = %s",
         (float(new_balance), user_id),
     )
     conn.commit()
@@ -1139,50 +1169,57 @@ def dashboard():
     conn = get_db_connection()
     cur = conn.cursor()
 
-    cur.execute("SELECT COUNT(*) FROM transactions WHERE user_id = ?", (user["id"],))
-    total = cur.fetchone()[0]
+    cur.execute("SELECT COUNT(*) FROM transactions WHERE user_id = %s", (user["id"],))
+    total_row = cur.fetchone()
+    total = list(total_row.values())[0] if total_row else 0
 
     cur.execute(
-        "SELECT COUNT(*) FROM transactions WHERE user_id = ? AND prediction = 'FRAUD'", (user["id"],)
+        "SELECT COUNT(*) FROM transactions WHERE user_id = %s AND prediction = 'FRAUD'", (user["id"],)
     )
-    frauds = cur.fetchone()[0]
+    frauds_row = cur.fetchone()
+    frauds = list(frauds_row.values())[0] if frauds_row else 0
 
     cur.execute(
-        "SELECT COUNT(*) FROM transactions WHERE user_id = ? AND status = 'BLOCKED'", (user["id"],)
+        "SELECT COUNT(*) FROM transactions WHERE user_id = %s AND status = 'BLOCKED'", (user["id"],)
     )
-    blocked = cur.fetchone()[0]
+    blocked_row = cur.fetchone()
+    blocked = list(blocked_row.values())[0] if blocked_row else 0
 
     date_col = get_datetime_column("transactions")
 
     cur.execute(
-        "SELECT COUNT(*) FROM transactions WHERE user_id = ? AND prediction = 'SAFE' AND status = 'APPROVED'", (user["id"],)
+        "SELECT COUNT(*) FROM transactions WHERE user_id = %s AND prediction = 'SAFE' AND status = 'APPROVED'", (user["id"],)
     )
-    safe = cur.fetchone()[0]
+    safe_row = cur.fetchone()
+    safe = list(safe_row.values())[0] if safe_row else 0
 
     cur.execute(
-        "SELECT COUNT(*) FROM transactions WHERE user_id = ? AND risk_score < 40", (user["id"],)
+        "SELECT COUNT(*) FROM transactions WHERE user_id = %s AND risk_score < 40", (user["id"],)
     )
-    low_risk = cur.fetchone()[0]
+    low_risk_row = cur.fetchone()
+    low_risk = list(low_risk_row.values())[0] if low_risk_row else 0
 
     cur.execute(
-        "SELECT COUNT(*) FROM transactions WHERE user_id = ? AND risk_score >= 40 AND risk_score < 80", (user["id"],)
+        "SELECT COUNT(*) FROM transactions WHERE user_id = %s AND risk_score >= 40 AND risk_score < 80", (user["id"],)
     )
-    medium_risk = cur.fetchone()[0]
+    medium_risk_row = cur.fetchone()
+    medium_risk = list(medium_risk_row.values())[0] if medium_risk_row else 0
 
     cur.execute(
-        "SELECT COUNT(*) FROM transactions WHERE user_id = ? AND risk_score >= 80", (user["id"],)
+        "SELECT COUNT(*) FROM transactions WHERE user_id = %s AND risk_score >= 80", (user["id"],)
     )
-    high_risk = cur.fetchone()[0]
+    high_risk_row = cur.fetchone()
+    high_risk = list(high_risk_row.values())[0] if high_risk_row else 0
 
     cur.execute(
-        f"SELECT date({date_col}) AS day, SUM(amount) AS total_amount FROM transactions WHERE user_id = ? GROUP BY day ORDER BY day DESC LIMIT 10",
+        f"SELECT DATE({date_col}) AS day, SUM(amount) AS total_amount FROM transactions WHERE user_id = %s GROUP BY day ORDER BY day DESC LIMIT 10",
         (user["id"],),
     )
     chart_data = cur.fetchall()
 
     cur.execute(
         "SELECT merchant_category, AVG(risk_score) AS avg_risk, COUNT(*) AS category_count "
-        "FROM transactions WHERE user_id = ? GROUP BY merchant_category "
+        "FROM transactions WHERE user_id = %s GROUP BY merchant_category "
         "ORDER BY category_count DESC LIMIT 10",
         (user["id"],),
     )
@@ -1220,7 +1257,7 @@ def alerts():
     cur = conn.cursor()
     date_col = get_datetime_column("transactions")
     cur.execute(
-        f"SELECT *, COALESCE(created_at, timestamp, updated_at) AS display_date FROM transactions WHERE user_id = ? AND (prediction = 'FRAUD' OR status IN ('BLOCKED', 'REJECTED', 'FRAUD')) ORDER BY {date_col} DESC",
+        f"SELECT *, COALESCE(created_at, timestamp, updated_at) AS display_date FROM transactions WHERE user_id = %s AND (prediction = 'FRAUD' OR status IN ('BLOCKED', 'REJECTED', 'FRAUD')) ORDER BY {date_col} DESC",
         (user["id"],),
     )
     alerts_data = normalize_timestamp_rows(cur.fetchall())
@@ -1236,11 +1273,11 @@ def history():
     cur = conn.cursor()
     date_col = get_datetime_column("transactions")
     cur.execute(
-        f"SELECT *, COALESCE(created_at, timestamp, updated_at) AS display_date FROM transactions WHERE user_id = ? ORDER BY {date_col} DESC",
+        f"SELECT *, COALESCE(created_at, timestamp, updated_at) AS display_date FROM transactions WHERE user_id = %s ORDER BY {date_col} DESC",
         (user["id"],),
     )
     # cur.execute(
-    #     f"SELECT *, timestamp AS display_date FROM transactions WHERE user_id = ? ORDER BY {date_col} DESC",
+    #     f"SELECT *, timestamp AS display_date FROM transactions WHERE user_id = %s ORDER BY {date_col} DESC",
     #     (user["id"],),
     # )
     transactions = normalize_timestamp_rows(cur.fetchall())

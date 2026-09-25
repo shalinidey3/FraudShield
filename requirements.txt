@@ -5,3 +5,5 @@ scikit-learn
 reportlab
 openpyxl
 gunicorn
+
+psycopg2-binary
