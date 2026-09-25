@@ -136,6 +136,9 @@
             {% if result %}
             <strong>Status:</strong> {{ result.status }}<br>
             <strong>Prediction:</strong> {{ result.prediction }}<br>
+            <strong>Risk Score:</strong> {{ result.risk_score }}%<br>
+            <strong>Fraud Probability:</strong> {{ result.fraud_probability }}%<br>
+            <strong>Reason:</strong> {{ result.rule_reason }}<br>
             <strong>Balance After:</strong> ₹{{ result.balance_after }}
             {% else %}
             Submit a transaction to receive a fraud prediction and detailed explanation.
