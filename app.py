@@ -1018,6 +1018,7 @@ def transaction():
                     rule_reason,
                     balance_after
                 ) VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
+                RETURNING id
                 """,
                 (
                     user["id"],
@@ -1039,7 +1040,7 @@ def transaction():
                     balance_after,
                 ),
             )
-            transaction_id = cur.lastrowid
+            transaction_id = cur.fetchone()["id"]
             conn.commit()
             conn.close()
 
