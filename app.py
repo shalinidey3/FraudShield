@@ -772,7 +772,7 @@ def transaction():
     result = None
     explanation = []
     if request.method == "POST":
-        if transactions_today >= user["daily_limit"]:
+        if int(user.get("transaction_count_today") or 0) >= int(user["daily_limit"]):
             flash("Daily transaction analysis limit reached. Please try again tomorrow.")
             return render_template(
                 "index.html",
